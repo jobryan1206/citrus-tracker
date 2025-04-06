@@ -22,7 +22,14 @@ st.title("🍋 Citrus Juice Tracker")
 
 # Input section
 st.subheader("Add New Entry")
-fruit = st.selectbox("Fruit type", ["Lime", "Lemon"])
+fruit_options = ["Lime", "Lemon", "Orange", "Grapefruit", "Apple", "Cucumber", "Other"]
+selected = st.selectbox("Fruit type", fruit_options)
+
+if selected == "Other":
+    fruit = st.text_input("Enter fruit name")
+else:
+    fruit = selected
+
 limes = st.number_input("Number of fruits", min_value=0, step=1, format="%i", value=None, placeholder="e.g. 4")
 weight = st.number_input("Total weight (g)", min_value=0.0, value=None, placeholder="e.g. 350.5")
 juice = st.number_input("Juice collected (fl oz)", min_value=0.0, value=None, placeholder="e.g. 5.5")
