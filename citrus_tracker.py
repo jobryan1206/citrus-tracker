@@ -1,16 +1,20 @@
 import streamlit as st
 import pandas as pd
+import gspread
 from datetime import datetime
-import os
+from oauth2client.service_account import ServiceAccountCredentials
 
-# File name
-FILE = "citrus_data.csv"
+# Connect to Google Sheets
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = ServiceAccountCredentials.from_json_keyfile_name("citrus_creds.json", scope)
+client = gspread.authorize(creds)
 
-# Load or initialize dataset
-if os.path.exists(FILE):
-    df = pd.read_csv(FILE)
-else:
-    df = pd.DataFrame(columns=["Date", "Fruit", "Limes", "Weight (g)", "Juice (fl oz)"])
+# Open the sheet
+sheet = client.open("Citrus Juice Tracker").worksheet("juice_data")
+
+# Load existing data into a DataFrame
+data = sheet.get_all_records()
+df = pd.DataFrame(data)
 
 st.title("🍋 Citrus Juice Tracker")
 
@@ -22,16 +26,16 @@ weight = st.number_input("Total weight (g)", min_value=0.0)
 juice = st.number_input("Juice collected (fl oz)", min_value=0.0)
 
 if st.button("Add Entry"):
-    new_entry = {
-        "Date": datetime.now().strftime("%Y-%m-%d"),
-        "Fruit": fruit,
-        "Limes": limes,
-        "Weight (g)": weight,
-        "Juice (fl oz)": juice
-    }
-    df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
-    df.to_csv(FILE, index=False)
+    new_entry = [
+        datetime.now().strftime("%Y-%m-%d"),
+        fruit,
+        limes,
+        weight,
+        juice
+    ]
+    sheet.append_row(new_entry)
     st.success("Entry added!")
+
 
 # View and analyze data
 if not df.empty:
