@@ -12,8 +12,9 @@ creds_dict = st.secrets["google"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(creds_dict), scope)
 client = gspread.authorize(creds)
 
-# Open the sheet
-sheet = client.open("Citrus Juice Tracker").worksheet("juice_data")
+sheets = client.openall()
+st.write("Available Sheets:", [s.title for s in sheets])
+
 
 # Load existing data into a DataFrame
 data = sheet.get_all_records()
