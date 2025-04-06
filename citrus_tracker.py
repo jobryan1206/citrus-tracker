@@ -14,8 +14,6 @@ client = gspread.authorize(creds)
 
 sheet = client.open("Citrus Juice Tracker").worksheet("juice_data")
 
-
-
 # Load existing data into a DataFrame
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
@@ -40,21 +38,20 @@ if st.button("Add Entry"):
     sheet.append_row(new_entry)
     st.success("Entry added!")
 
+# Show stats first
+st.subheader("📊 Averages by Fruit")
+grouped = df.groupby("Fruit").agg({
+    "Limes": "sum",
+    "Weight (g)": "sum",
+    "Juice (fl oz)": "sum"
+}).reset_index()
 
-# View and analyze data
-if not df.empty:
-    st.subheader("📄 All Entries")
-    st.dataframe(df)
+for _, row in grouped.iterrows():
+    if row["Limes"] > 0 and row["Weight (g)"] > 0:
+        st.markdown(f"**{row['Fruit']}**")
+        st.write(f"• Juice per fruit: {row['Juice (fl oz)'] / row['Limes']:.2f} fl oz")
+        st.write(f"• Juice per 100g: {(row['Juice (fl oz)'] / row['Weight (g)']) * 100:.2f} fl oz/100g")
 
-    st.subheader("📊 Averages by Fruit")
-    grouped = df.groupby("Fruit").agg({
-        "Limes": "sum",
-        "Weight (g)": "sum",
-        "Juice (fl oz)": "sum"
-    }).reset_index()
-
-    for _, row in grouped.iterrows():
-        if row["Limes"] > 0 and row["Weight (g)"] > 0:
-            st.markdown(f"**{row['Fruit']}**")
-            st.write(f"• Juice per fruit: {row['Juice (fl oz)'] / row['Limes']:.2f} fl oz")
-            st.write(f"• Juice per 100g: {(row['Juice (fl oz)'] / row['Weight (g)']) * 100:.2f} fl oz/100g")
+# Then show the full table
+st.subheader("📄 All Entries")
+st.dataframe(df)
