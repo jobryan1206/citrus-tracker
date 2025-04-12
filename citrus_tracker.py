@@ -40,7 +40,7 @@ if st.button("Add Entry"):
     else:
         new_entry = [
             datetime.now().strftime("%Y-%m-%d"),
-            f"{fruit} {fruit_emoji}".strip(),
+            fruit,
             limes,
             weight,
             juice
@@ -62,7 +62,7 @@ if st.button("Add Entry"):
 
             # Show comparison to historical average for this fruit
             if not df.empty:
-                fruit_only = df[df["Fruit"] == f"{fruit} {fruit_emoji}".strip()]
+                fruit_only = df[df["Fruit"] == fruit]
                 if not fruit_only.empty and fruit_only["Limes"].sum() > 0 and fruit_only["Weight (g)"].sum() > 0:
                     total_juice = fruit_only["Juice (fl oz)"].sum()
                     total_limes = fruit_only["Limes"].sum()
