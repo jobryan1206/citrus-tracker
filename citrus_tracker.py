@@ -68,6 +68,19 @@ if st.button("Add Entry"):
             st.write(f"• Juice per 100g: **{per_100g:.2f} fl oz/100g**")
             st.write(f"• Est. fruits for 8 oz: **{limes_for_8oz:.1f} {fruit.lower()}s**")
 
-            if not df.empty:
-                fruit_only = df[df["Fruit"] == fruit]
-                if not fruit_only.empty and fruit_only["Limes"].sum() > 0 and fruit_only["Weight (g)"].sum() >_
+                               if not df.empty:
+                        fruit_only = df[df["Fruit"] == fruit]
+                        if not fruit_only.empty and fruit_only["Limes"].sum() > 0 and fruit_only["Weight (g)"].sum() > 0:
+                            total_juice = fruit_only["Juice (fl oz)"].sum()
+                            total_limes = fruit_only["Limes"].sum()
+                            total_weight = fruit_only["Weight (g)"].sum()
+
+                            avg_per_lime = total_juice / total_limes
+                            avg_per_100g = (total_juice / total_weight) * 100
+                            avg_limes_for_8oz = 8 / avg_per_lime
+
+                            st.subheader("📊 Compared to Averages for This Fruit")
+                            st.write(f"• Avg juice per fruit: **{avg_per_lime:.2f} fl oz**")
+                            st.write(f"• Avg juice per 100g: **{avg_per_100g:.2f} fl oz/100g**")
+                            st.write(f"• Avg fruits for 8 oz: **{avg_limes_for_8oz:.1f} {fruit.lower()}s**")
+
