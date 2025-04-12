@@ -49,11 +49,11 @@ if st.button("Add Entry"):
 
         # Clear input fields safely
         if "num_fruits" in st.session_state:
-            st.session_state["num_fruits"] = 0
+            st.session_state["num_fruits"] = None
         if "weight_input" in st.session_state:
-            st.session_state["weight_input"] = 0.0
+            st.session_state["weight_input"] = None
         if "juice_input" in st.session_state:
-            st.session_state["juice_input"] = 0.0
+            st.session_state["juice_input"] = None
         if selected == "Other" and "fruit_custom" in st.session_state:
             st.session_state["fruit_custom"] = ""
 
