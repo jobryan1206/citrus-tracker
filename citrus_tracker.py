@@ -65,7 +65,9 @@ if not df.empty and limes and weight:
             ]
         })
 
-        pred_table = pred_table.applymap(lambda x: f"{x:.1f}")
+        for col in ["Min (fl oz)", "Avg (fl oz)", "Max (fl oz)"]:
+            pred_table[col] = pred_table[col].map(lambda x: f"{x:.1f}")
+
 
         st.subheader("📈 Predicted Juice Yield (fl oz)")
         st.table(pred_table)
