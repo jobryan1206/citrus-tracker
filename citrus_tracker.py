@@ -42,22 +42,38 @@ juice = st.number_input("Juice collected (fl oz)", min_value=0.0,
 # --- Toggle: rolling vs full average ---
 use_rolling = st.toggle("Use rolling average (last 10 entries)", value=True)
 
-# --- Yield prediction before entry ---
+# --- Expanded yield prediction block ---
 if not df.empty and limes and weight:
     fruit_df = df[df["Fruit"] == fruit].copy()
     recent_df = fruit_df.tail(10) if use_rolling else fruit_df
 
     if not recent_df.empty and recent_df["Limes"].sum() > 0 and recent_df["Weight (g)"].sum() > 0:
-        avg_per_fruit = recent_df["Juice (fl oz)"].sum() / recent_df["Limes"].sum()
-        avg_per_100g = (recent_df["Juice (fl oz)"].sum() / recent_df["Weight (g)"].sum()) * 100
-
-        pred_by_fruit = avg_per_fruit * limes
-        pred_by_weight = (avg_per_100g / 100) * weight
+        per_fruit_vals = recent_df["Juice (fl oz)"] / recent_df["Limes"]
+        per_100g_vals = recent_df["Juice (fl oz)"] / recent_df["Weight (g)"] * 100
 
         st.subheader("📈 Predicted Juice Yield")
-        st.write(f"• Based on fruit count: **{pred_by_fruit:.2f} fl oz**")
-        st.write(f"• Based on weight: **{pred_by_weight:.2f} fl oz**")
 
+        # Fruit-based predictions
+        min_fruit = per_fruit_vals.min() * limes
+        avg_fruit = per_fruit_vals.mean() * limes
+        max_fruit = per_fruit_vals.max() * limes
+
+        st.markdown("**Based on fruit count:**")
+        st.write(f"• Min: **{min_fruit:.2f} fl oz**")
+        st.write(f"• Avg: **{avg_fruit:.2f} fl oz**")
+        st.write(f"• Max: **{max_fruit:.2f} fl oz**")
+
+        # Weight-based predictions
+        min_weight = (per_100g_vals.min() / 100) * weight
+        avg_weight = (per_100g_vals.mean() / 100) * weight
+        max_weight = (per_100g_vals.max() / 100) * weight
+
+        st.markdown("**Based on weight:**")
+        st.write(f"• Min: **{min_weight:.2f} fl oz**")
+        st.write(f"• Avg: **{avg_weight:.2f} fl oz**")
+        st.write(f"• Max: **{max_weight:.2f} fl oz**")
+
+        # Optional accuracy if juice already entered
         if juice:
             st.subheader("🔍 Prediction Accuracy")
 
@@ -67,13 +83,14 @@ if not df.empty and limes and weight:
                 direction = "overestimated" if diff > 0 else "underestimated"
                 return diff, abs(pct), direction
 
-            d1, p1, dir1 = compare(pred_by_fruit, juice)
-            d2, p2, dir2 = compare(pred_by_weight, juice)
+            _, pct_fruit, dir_fruit = compare(avg_fruit, juice)
+            _, pct_weight, dir_weight = compare(avg_weight, juice)
 
-            st.write(f"• Fruit prediction {dir1} by **{p1:.1f}%** ({d1:+.2f} fl oz)")
-            st.write(f"• Weight prediction {dir2} by **{p2:.1f}%** ({d2:+.2f} fl oz)")
+            st.write(f"• Avg fruit prediction {dir_fruit} by **{pct_fruit:.1f}%**")
+            st.write(f"• Avg weight prediction {dir_weight} by **{pct_weight:.1f}%**")
     else:
-        st.info("Not enough data to predict yield.")
+        st.info("Not enough data to generate predictions.")
+
 
 # --- Save entry ---
 if st.button("Add Entry"):
