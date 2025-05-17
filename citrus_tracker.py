@@ -49,23 +49,24 @@ if not df.empty and limes and weight:
         per_fruit_vals = recent_df["Juice (fl oz)"] / recent_df["Limes"]
         per_100g_vals = recent_df["Juice (fl oz)"] / recent_df["Weight (g)"] * 100
 
-                pred_table = pd.DataFrame({
+        pred_table = pd.DataFrame({
             "Method": ["By fruit count", "By weight"],
             "Min (fl oz)": [
-                np.round(per_fruit_vals.min() * limes, 2),
-                np.round((per_100g_vals.min() / 100) * weight, 2)
+                per_fruit_vals.min() * limes,
+                (per_100g_vals.min() / 100) * weight
             ],
             "Avg (fl oz)": [
-                np.round(per_fruit_vals.mean() * limes, 2),
-                np.round((per_100g_vals.mean() / 100) * weight, 2)
+                per_fruit_vals.mean() * limes,
+                (per_100g_vals.mean() / 100) * weight
             ],
             "Max (fl oz)": [
-                np.round(per_fruit_vals.max() * limes, 2),
-                np.round((per_100g_vals.max() / 100) * weight, 2)
+                per_fruit_vals.max() * limes,
+                (per_100g_vals.max() / 100) * weight
             ]
         })
 
-        pred_table = pred_table.round(1)  # limit to 1 decimal place
+        pred_table = pred_table.round(1)
+
         st.subheader("📈 Predicted Juice Yield (fl oz)")
         st.table(pred_table)
 
@@ -86,7 +87,6 @@ if not df.empty and limes and weight:
 
             st.write(f"• Avg fruit prediction {dir_fruit} by **{pct_fruit:.1f}%**")
             st.write(f"• Avg weight prediction {dir_weight} by **{pct_weight:.1f}%**")
-
     else:
         st.info("Not enough data to generate predictions.")
 
