@@ -66,9 +66,9 @@ if not df.empty and limes and weight:
         })
 
       
-pred_table = pred_table.round(1)  # limit to 1 decimal place
-st.subheader("📈 Predicted Juice Yield (fl oz)")
-st.table(pred_table)
+    pred_table = pred_table.round(1)  # limit to 1 decimal place
+    st.subheader("📈 Predicted Juice Yield (fl oz)")
+    st.table(pred_table)
 
 
         if juice:
