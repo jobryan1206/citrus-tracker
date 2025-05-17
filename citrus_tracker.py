@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import gspread
 from datetime import datetime
 from oauth2client.service_account import ServiceAccountCredentials
@@ -29,20 +30,17 @@ if selected == "Other":
 else:
     fruit = selected
 
-# Use blank defaults with session fallback
 limes = st.number_input("Number of fruits", min_value=0, step=1, format="%i",
                         value=None, placeholder="e.g. 4", key="num_fruits")
-
 weight = st.number_input("Total weight (g)", min_value=0.0,
                          value=None, placeholder="e.g. 350.5", key="weight_input")
-
 juice = st.number_input("Juice collected (fl oz)", min_value=0.0,
                         value=None, placeholder="e.g. 5.5", key="juice_input")
 
-# --- Toggle: rolling vs full average ---
+# --- Toggle for rolling average ---
 use_rolling = st.toggle("Use rolling average (last 10 entries)", value=True)
 
-# --- Expanded yield prediction block ---
+# --- Yield prediction (min/avg/max + accuracy) ---
 if not df.empty and limes and weight:
     fruit_df = df[df["Fruit"] == fruit].copy()
     recent_df = fruit_df.tail(10) if use_rolling else fruit_df
@@ -50,8 +48,6 @@ if not df.empty and limes and weight:
     if not recent_df.empty and recent_df["Limes"].sum() > 0 and recent_df["Weight (g)"].sum() > 0:
         per_fruit_vals = recent_df["Juice (fl oz)"] / recent_df["Limes"]
         per_100g_vals = recent_df["Juice (fl oz)"] / recent_df["Weight (g)"] * 100
-
-                import numpy as np  # make sure this is also at the top of your file
 
         pred_table = pd.DataFrame({
             "Method": ["By fruit count", "By weight"],
@@ -72,29 +68,6 @@ if not df.empty and limes and weight:
         st.subheader("📈 Predicted Juice Yield (fl oz)")
         st.table(pred_table)
 
-        st.subheader("📈 Predicted Juice Yield")
-
-        # Fruit-based predictions
-        min_fruit = per_fruit_vals.min() * limes
-        avg_fruit = per_fruit_vals.mean() * limes
-        max_fruit = per_fruit_vals.max() * limes
-
-        st.markdown("**Based on fruit count:**")
-        st.write(f"• Min: **{min_fruit:.2f} fl oz**")
-        st.write(f"• Avg: **{avg_fruit:.2f} fl oz**")
-        st.write(f"• Max: **{max_fruit:.2f} fl oz**")
-
-        # Weight-based predictions
-        min_weight = (per_100g_vals.min() / 100) * weight
-        avg_weight = (per_100g_vals.mean() / 100) * weight
-        max_weight = (per_100g_vals.max() / 100) * weight
-
-        st.markdown("**Based on weight:**")
-        st.write(f"• Min: **{min_weight:.2f} fl oz**")
-        st.write(f"• Avg: **{avg_weight:.2f} fl oz**")
-        st.write(f"• Max: **{max_weight:.2f} fl oz**")
-
-        # Optional accuracy if juice already entered
         if juice:
             st.subheader("🔍 Prediction Accuracy")
 
@@ -104,14 +77,16 @@ if not df.empty and limes and weight:
                 direction = "overestimated" if diff > 0 else "underestimated"
                 return diff, abs(pct), direction
 
-            _, pct_fruit, dir_fruit = compare(avg_fruit, juice)
-            _, pct_weight, dir_weight = compare(avg_weight, juice)
+            avg_pred_fruit = per_fruit_vals.mean() * limes
+            avg_pred_weight = (per_100g_vals.mean() / 100) * weight
+
+            _, pct_fruit, dir_fruit = compare(avg_pred_fruit, juice)
+            _, pct_weight, dir_weight = compare(avg_pred_weight, juice)
 
             st.write(f"• Avg fruit prediction {dir_fruit} by **{pct_fruit:.1f}%**")
             st.write(f"• Avg weight prediction {dir_weight} by **{pct_weight:.1f}%**")
     else:
         st.info("Not enough data to generate predictions.")
-
 
 # --- Save entry ---
 if st.button("Add Entry"):
@@ -128,14 +103,13 @@ if st.button("Add Entry"):
         sheet.append_row(new_entry)
         st.success("Entry added!")
 
-        # Clear fields safely
         for key in ["num_fruits", "weight_input", "juice_input", "fruit_custom"]:
             if key in st.session_state:
                 del st.session_state[key]
 
         st.rerun()
 
-# --- This Entry’s Stats ---
+# --- Current Entry Stats ---
 if juice and limes > 0 and weight > 0:
     st.subheader("📌 This Entry’s Stats")
     per_lime = juice / limes
@@ -178,7 +152,7 @@ if not df.empty and "Fruit" in df.columns:
     st.subheader("📄 All Entries")
     st.dataframe(df)
 
-# --- Prediction vs Actual Chart ---
+# --- Prediction vs Actual Over Time ---
 if not df.empty and "Juice (fl oz)" in df.columns:
     st.subheader("📈 Prediction vs Actual Over Time")
 
