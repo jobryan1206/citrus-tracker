@@ -51,6 +51,27 @@ if not df.empty and limes and weight:
         per_fruit_vals = recent_df["Juice (fl oz)"] / recent_df["Limes"]
         per_100g_vals = recent_df["Juice (fl oz)"] / recent_df["Weight (g)"] * 100
 
+                import numpy as np  # make sure this is also at the top of your file
+
+        pred_table = pd.DataFrame({
+            "Method": ["By fruit count", "By weight"],
+            "Min (fl oz)": [
+                np.round(per_fruit_vals.min() * limes, 2),
+                np.round((per_100g_vals.min() / 100) * weight, 2)
+            ],
+            "Avg (fl oz)": [
+                np.round(per_fruit_vals.mean() * limes, 2),
+                np.round((per_100g_vals.mean() / 100) * weight, 2)
+            ],
+            "Max (fl oz)": [
+                np.round(per_fruit_vals.max() * limes, 2),
+                np.round((per_100g_vals.max() / 100) * weight, 2)
+            ]
+        })
+
+        st.subheader("📈 Predicted Juice Yield (fl oz)")
+        st.table(pred_table)
+
         st.subheader("📈 Predicted Juice Yield")
 
         # Fruit-based predictions
