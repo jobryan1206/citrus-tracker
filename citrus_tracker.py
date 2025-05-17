@@ -65,7 +65,7 @@ if not df.empty and limes and weight:
             ]
         })
 
-        pred_table = pred_table.round(1)
+        pred_table = pred_table.applymap(lambda x: f"{x:.1f}")
 
         st.subheader("📈 Predicted Juice Yield (fl oz)")
         st.table(pred_table)
