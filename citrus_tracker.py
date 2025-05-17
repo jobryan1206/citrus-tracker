@@ -70,7 +70,7 @@ if not df.empty and limes and weight:
 
 
         st.subheader("📈 Predicted Juice Yield (fl oz)")
-        st.table(pred_table)
+        st.table(pred_table.set_index("Method"))
 
         if juice:
             st.subheader("🔍 Prediction Accuracy")
