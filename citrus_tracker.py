@@ -22,7 +22,7 @@ st.title("🍋 Citrus Juice Tracker")
 # --- Input section ---
 st.subheader("Add New Entry")
 
-fruit_options = ["Lime", "Lemon", "Grapefruit", “Ginger”, "Apple", "Cucumber", "Other"]
+fruit_options = ["Lime", "Lemon", "Grapefruit", "Ginger", "Apple", "Cucumber", "Other"]
 selected = st.selectbox("Fruit type", fruit_options, key="fruit_select")
 
 if selected == "Other":
