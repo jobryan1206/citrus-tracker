@@ -149,57 +149,61 @@ if st.button("Add Entry"):
         st.rerun()
 
 # --- Juice Efficiency Over Time ---
-if not df.empty and len(df) > 1:
-    st.subheader("📈 Juice Efficiency Over Time")
+if not df.empty and fruit:  # Only show if a fruit is selected
+    st.subheader(f"📈 {fruit} Efficiency Over Time")
     
-    # Create efficiency chart data
-    chart_df = df.copy()
-    chart_df["Date"] = pd.to_datetime(chart_df["Date"])
+    # Filter data for the selected fruit type only
+    fruit_data = df[df["Fruit"] == fruit].copy()
     
-    # Calculate efficiency metrics for each entry
-    chart_df["Juice per fruit (fl oz)"] = chart_df.apply(
-        lambda row: row["Juice (fl oz)"] / row["Limes"] if row["Limes"] > 0 else np.nan, 
-        axis=1
-    )
-    chart_df["Juice per 100g (fl oz)"] = chart_df.apply(
-        lambda row: (row["Juice (fl oz)"] / row["Weight (g)"]) * 100 if row["Weight (g)"] > 0 else np.nan, 
-        axis=1
-    )
-    
-    # Filter out entries with missing data and sort by date
-    chart_df = chart_df.dropna(subset=["Juice per fruit (fl oz)", "Juice per 100g (fl oz)"])
-    chart_df = chart_df.sort_values("Date")
-    
-    if not chart_df.empty:
-        # Create the line chart
-        st.line_chart(
-            chart_df.set_index("Date")[["Juice per fruit (fl oz)", "Juice per 100g (fl oz)"]]
+    if len(fruit_data) > 1:
+        # Create efficiency chart data
+        chart_df = fruit_data.copy()
+        chart_df["Date"] = pd.to_datetime(chart_df["Date"])
+        
+        # Calculate efficiency metrics for each entry
+        chart_df["Juice per fruit (fl oz)"] = chart_df.apply(
+            lambda row: row["Juice (fl oz)"] / row["Limes"] if row["Limes"] > 0 else np.nan, 
+            axis=1
+        )
+        chart_df["Juice per 100g (fl oz)"] = chart_df.apply(
+            lambda row: (row["Juice (fl oz)"] / row["Weight (g)"]) * 100 if row["Weight (g)"] > 0 else np.nan, 
+            axis=1
         )
         
-        # Add some summary stats
-        col1, col2 = st.columns(2)
-        with col1:
-            latest_per_fruit = chart_df["Juice per fruit (fl oz)"].iloc[-1]
-            avg_per_fruit = chart_df["Juice per fruit (fl oz)"].mean()
-            st.metric(
-                "Latest vs Avg (per fruit)", 
-                f"{latest_per_fruit:.2f} fl oz",
-                f"{latest_per_fruit - avg_per_fruit:+.2f} fl oz"
-            )
+        # Filter out entries with missing data and sort by date
+        chart_df = chart_df.dropna(subset=["Juice per fruit (fl oz)", "Juice per 100g (fl oz)"])
+        chart_df = chart_df.sort_values("Date")
         
-        with col2:
-            latest_per_100g = chart_df["Juice per 100g (fl oz)"].iloc[-1]
-            avg_per_100g = chart_df["Juice per 100g (fl oz)"].mean()
-            st.metric(
-                "Latest vs Avg (per 100g)", 
-                f"{latest_per_100g:.2f} fl oz",
-                f"{latest_per_100g - avg_per_100g:+.2f} fl oz"
+        if not chart_df.empty:
+            # Create the line chart
+            st.line_chart(
+                chart_df.set_index("Date")[["Juice per fruit (fl oz)", "Juice per 100g (fl oz)"]]
             )
+            
+            # Add some summary stats
+            col1, col2 = st.columns(2)
+            with col1:
+                latest_per_fruit = chart_df["Juice per fruit (fl oz)"].iloc[-1]
+                avg_per_fruit = chart_df["Juice per fruit (fl oz)"].mean()
+                st.metric(
+                    f"Latest vs Avg (per {fruit.lower()})", 
+                    f"{latest_per_fruit:.2f} fl oz",
+                    f"{latest_per_fruit - avg_per_fruit:+.2f} fl oz"
+                )
+            
+            with col2:
+                latest_per_100g = chart_df["Juice per 100g (fl oz)"].iloc[-1]
+                avg_per_100g = chart_df["Juice per 100g (fl oz)"].mean()
+                st.metric(
+                    f"Latest vs Avg (per 100g {fruit.lower()})", 
+                    f"{latest_per_100g:.2f} fl oz",
+                    f"{latest_per_100g - avg_per_100g:+.2f} fl oz"
+                )
+        else:
+            st.info(f"Not enough complete {fruit.lower()} entries to display efficiency trends.")
     else:
-        st.info("Not enough complete data entries to display efficiency trends.")
-else:
-    st.info("Add more entries to see efficiency trends over time.")
-
+        st.info(f"Add more {fruit.lower()} entries to see efficiency trends over time (need at least 2 entries).")
+        
 # --- Current Entry Stats ---
 if juice and limes > 0 and weight > 0:
     st.subheader("📌 This Entry’s Stats")
