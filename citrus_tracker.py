@@ -68,16 +68,30 @@ if not df.empty and limes and weight:
         weight_2sd_lower = ((weight_mean - 2*weight_std) / 100) * weight
         weight_2sd_upper = ((weight_mean + 2*weight_std) / 100) * weight
 
+        # Get most recent entry for this fruit type
+        if len(recent_df) > 0:
+            last_entry = recent_df.iloc[-1]
+            last_per_fruit = last_entry["Juice (fl oz)"] / last_entry["Limes"] if last_entry["Limes"] > 0 else 0
+            last_per_100g = last_entry["Juice (fl oz)"] / last_entry["Weight (g)"] * 100 if last_entry["Weight (g)"] > 0 else 0
+            
+            last_fruit_pred = last_per_fruit * limes
+            last_weight_pred = (last_per_100g / 100) * weight
+        else:
+            last_fruit_pred = 0
+            last_weight_pred = 0
+
         pred_table = pd.DataFrame({
-            "Method": ["By fruit count", "By weight"],
-            "Avg (fl oz)": [fruit_avg, weight_avg],
+            "Method": ["By fruit count", "By weight", "Like last entry"],
+            "Avg (fl oz)": [fruit_avg, weight_avg, last_fruit_pred],
             "1σ Range (fl oz)": [
                 f"{fruit_1sd_lower:.1f} - {fruit_1sd_upper:.1f}",
-                f"{weight_1sd_lower:.1f} - {weight_1sd_upper:.1f}"
+                f"{weight_1sd_lower:.1f} - {weight_1sd_upper:.1f}",
+                f"{last_fruit_pred:.1f}"
             ],
             "2σ Range (fl oz)": [
                 f"{fruit_2sd_lower:.1f} - {fruit_2sd_upper:.1f}",
-                f"{weight_2sd_lower:.1f} - {weight_2sd_upper:.1f}"
+                f"{weight_2sd_lower:.1f} - {weight_2sd_upper:.1f}",
+                f"{last_weight_pred:.1f}"
             ]
         })
 
@@ -88,7 +102,7 @@ if not df.empty and limes and weight:
         st.table(pred_table.set_index("Method"))
         
         # Add explanatory text
-        st.caption("1σ range covers ~68% of expected outcomes, 2σ range covers ~95% of expected outcomes")
+        st.caption("1σ range covers ~68% of expected outcomes, 2σ range covers ~95% of expected outcomes. 'Like last entry' shows single-point predictions based on your most recent entry for this fruit type.")
 
         if juice:
             st.subheader("🔍 Prediction Accuracy")
@@ -101,9 +115,11 @@ if not df.empty and limes and weight:
 
             _, pct_fruit, dir_fruit = compare(fruit_avg, juice)
             _, pct_weight, dir_weight = compare(weight_avg, juice)
+            _, pct_last_fruit, dir_last_fruit = compare(last_fruit_pred, juice)
 
             st.write(f"• Avg fruit prediction {dir_fruit} by **{pct_fruit:.1f}%**")
             st.write(f"• Avg weight prediction {dir_weight} by **{pct_weight:.1f}%**")
+            st.write(f"• Last entry prediction {dir_last_fruit} by **{pct_last_fruit:.1f}%**")
     else:
         st.info("Not enough data to generate predictions.")
         
