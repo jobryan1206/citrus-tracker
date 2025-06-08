@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,7 +5,7 @@ import gspread
 from datetime import datetime
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Google Sheets setup
+# Authenticate and connect to Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds_dict = st.secrets["google"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(creds_dict), scope)
@@ -21,8 +20,7 @@ st.title("🍋 Citrus Juice Tracker")
 
 # Input section
 st.subheader("Add New Entry")
-
-fruit_options = ["Lime", "Lemon", "Orange", "Grapefruit", "Apple", "Cucumber", "Ginger", "Other"]
+fruit_options = ["Lime", "Lemon", "Orange", "Grapefruit", "Apple", "Cucumber", "Other"]
 selected = st.selectbox("Fruit type", fruit_options, key="fruit_select")
 
 if selected == "Other":
@@ -30,85 +28,89 @@ if selected == "Other":
 else:
     fruit = selected
 
-limes = st.number_input("Number of fruits", min_value=0, step=1, format="%i", value=None, placeholder="e.g. 4", key="num_fruits")
+limes = st.number_input("Number of fruits", min_value=0, step=1, value=None, placeholder="e.g. 4", key="num_fruits")
 weight = st.number_input("Total weight (g)", min_value=0.0, value=None, placeholder="e.g. 350.5", key="weight_input")
-juice = st.number_input("Juice collected (fl oz)", min_value=0.0, value=None, placeholder="e.g. 5.5", key="juice_input")
 
-# Predictions based on historical data
-if fruit and limes and weight:
-    fruit_df = df[df["Fruit"] == fruit]
-    if not fruit_df.empty:
-        per_fruit_vals = fruit_df["Juice (fl oz)"] / fruit_df["Limes"]
-        per_100g_vals = fruit_df["Juice (fl oz)"] / fruit_df["Weight (g)"] * 100
+# Prediction section (before entering juice)
+if fruit and (limes or weight):
+    fruit_only = df[df["Fruit"] == fruit]
+    if not fruit_only.empty:
+        per_fruit_vals = fruit_only["Juice (fl oz)"] / fruit_only["Limes"]
+        per_100g_vals = fruit_only["Juice (fl oz)"] / fruit_only["Weight (g)"] * 100
 
-        fruit_vals = per_fruit_vals.dropna()
-        weight_vals = per_100g_vals.dropna()
-
-        # Averages and standard deviations
-        fruit_avg = fruit_vals.mean()
-        fruit_std = fruit_vals.std()
-
-        weight_avg = weight_vals.mean()
-        weight_std = weight_vals.std()
-
-        # Prediction ranges
-        pred_table = pd.DataFrame({
+        pred_data = {
             "Method": ["By fruit count", "By weight"],
-            "Avg (fl oz)": [
-                round(fruit_avg * limes, 2),
-                round((weight_avg / 100) * weight, 2)
-            ],
-            "±1σ (fl oz)": [
-                f"{round((fruit_avg - fruit_std) * limes, 2)} – {round((fruit_avg + fruit_std) * limes, 2)}",
-                f"{round(((weight_avg - weight_std) / 100) * weight, 2)} – {round(((weight_avg + weight_std) / 100) * weight, 2)}"
-            ],
-            "±2σ (fl oz)": [
-                f"{round((fruit_avg - 2 * fruit_std) * limes, 2)} – {round((fruit_avg + 2 * fruit_std) * limes, 2)}",
-                f"{round(((weight_avg - 2 * weight_std) / 100) * weight, 2)} – {round(((weight_avg + 2 * weight_std) / 100) * weight, 2)}"
-            ]
-        })
+            "Avg (fl oz)": [],
+            "+1 SD": [],
+            "-1 SD": [],
+            "Last (fl oz)": []
+        }
 
+        # Fruit count-based predictions
+        if limes > 0:
+            pred_data["Avg (fl oz)"].append(per_fruit_vals.mean() * limes)
+            pred_data["+1 SD"].append((per_fruit_vals.mean() + per_fruit_vals.std()) * limes)
+            pred_data["-1 SD"].append((per_fruit_vals.mean() - per_fruit_vals.std()) * limes)
+            pred_data["Last (fl oz)"].append(per_fruit_vals.iloc[-1] * limes)
+        else:
+            pred_data["Avg (fl oz)"].append(np.nan)
+            pred_data["+1 SD"].append(np.nan)
+            pred_data["-1 SD"].append(np.nan)
+            pred_data["Last (fl oz)"].append(np.nan)
+
+        # Weight-based predictions
+        if weight > 0:
+            per_g_vals = per_100g_vals / 100
+            pred_data["Avg (fl oz)"].append(per_g_vals.mean() * weight)
+            pred_data["+1 SD"].append((per_g_vals.mean() + per_g_vals.std()) * weight)
+            pred_data["-1 SD"].append((per_g_vals.mean() - per_g_vals.std()) * weight)
+            pred_data["Last (fl oz)"].append(per_g_vals.iloc[-1] * weight)
+        else:
+            pred_data["Avg (fl oz)"].append(np.nan)
+            pred_data["+1 SD"].append(np.nan)
+            pred_data["-1 SD"].append(np.nan)
+            pred_data["Last (fl oz)"].append(np.nan)
+
+        pred_df = pd.DataFrame(pred_data).round(2)
         st.subheader("📈 Predicted Juice Yield (fl oz)")
-        st.table(pred_table.style.hide(axis="index"))
+        st.dataframe(pred_df.style.hide(axis="index"), use_container_width=True)
+
+juice = st.number_input("Juice collected (fl oz)", min_value=0.0, value=None, placeholder="e.g. 5.5", key="juice_input")
 
 if st.button("Add Entry"):
     if not fruit:
         st.warning("Please enter a fruit name.")
     else:
-        new_entry = [
+        sheet.append_row([
             datetime.now().strftime("%Y-%m-%d"),
             fruit,
             limes,
             weight,
             juice
-        ]
-        sheet.append_row(new_entry)
+        ])
         st.success("Entry added!")
 
-        # Clear input fields safely
+        # Clear input fields
         for key in ["num_fruits", "weight_input", "juice_input", "fruit_custom"]:
             if key in st.session_state:
                 del st.session_state[key]
 
-        # Show entry stats
+        # Entry stats
         st.subheader("📌 This Entry’s Stats")
-        if limes > 0 and weight > 0:
-            per_lime = juice / limes
-            per_pound = juice / (weight / 453.592)
+        if limes > 0:
+            st.write(f"• Juice per fruit: **{juice / limes:.2f} fl oz**")
+        if weight > 0:
+            st.write(f"• Juice per pound: **{(juice / weight) * 453.592:.2f} fl oz/lb**")
 
-            st.write(f"• Juice per fruit: **{per_lime:.2f} fl oz**")
-            st.write(f"• Juice per pound: **{per_pound:.2f} fl oz/lb**")
+        # Historical stats
+        fruit_only = df[df["Fruit"] == fruit]
+        if not fruit_only.empty:
+            total_juice = fruit_only["Juice (fl oz)"].sum()
+            total_limes = fruit_only["Limes"].sum()
+            total_weight = fruit_only["Weight (g)"].sum()
 
-            if not df.empty:
-                fruit_only = df[df["Fruit"] == fruit]
-                if not fruit_only.empty and fruit_only["Limes"].sum() > 0 and fruit_only["Weight (g)"].sum() > 0:
-                    total_juice = fruit_only["Juice (fl oz)"].sum()
-                    total_limes = fruit_only["Limes"].sum()
-                    total_weight = fruit_only["Weight (g)"].sum()
-
-                    avg_per_lime = total_juice / total_limes
-                    avg_per_pound = total_juice / (total_weight / 453.592)
-
-                    st.subheader("📊 Compared to Averages for This Fruit")
-                    st.write(f"• Avg juice per fruit: **{avg_per_lime:.2f} fl oz**")
-                    st.write(f"• Avg juice per pound: **{avg_per_pound:.2f} fl oz/lb**")
+            st.subheader("📊 Historical Averages for This Fruit")
+            if total_limes > 0:
+                st.write(f"• Avg juice per fruit: **{total_juice / total_limes:.2f} fl oz**")
+            if total_weight > 0:
+                st.write(f"• Avg juice per pound: **{(total_juice / total_weight) * 453.592:.2f} fl oz/lb**")
