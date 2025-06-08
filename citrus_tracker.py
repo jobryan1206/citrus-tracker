@@ -114,3 +114,35 @@ if st.button("Add Entry"):
                 st.write(f"• Avg juice per fruit: **{total_juice / total_limes:.2f} fl oz**")
             if total_weight > 0:
                 st.write(f"• Avg juice per pound: **{(total_juice / total_weight) * 453.592:.2f} fl oz/lb**")
+
+import matplotlib.pyplot as plt
+
+# Filter by selected fruit only, to avoid cross-fruit confusion
+df_fruit = df[df["Fruit"] == fruit].copy()
+
+# Ensure sorting by date
+df_fruit["Date"] = pd.to_datetime(df_fruit["Date"])
+df_fruit.sort_values("Date", inplace=True)
+
+# Calculate juice per fruit and juice per 100g
+df_fruit["Juice per Fruit"] = df_fruit["Juice (fl oz)"] / df_fruit["Limes"]
+df_fruit["Juice per 100g"] = (df_fruit["Juice (fl oz)"] / df_fruit["Weight (g)"]) * 100
+
+# Juice per Fruit Chart
+st.subheader("📈 Juice per Fruit Over Time")
+fig1, ax1 = plt.subplots()
+ax1.plot(df_fruit["Date"], df_fruit["Juice per Fruit"], marker="o")
+ax1.set_xlabel("Date")
+ax1.set_ylabel("Juice per Fruit (fl oz)")
+ax1.grid(True)
+st.pyplot(fig1)
+
+# Juice per 100g Chart
+st.subheader("📉 Juice per 100g Over Time")
+fig2, ax2 = plt.subplots()
+ax2.plot(df_fruit["Date"], df_fruit["Juice per 100g"], marker="o", color="orange")
+ax2.set_xlabel("Date")
+ax2.set_ylabel("Juice per 100g (fl oz)")
+ax2.grid(True)
+st.pyplot(fig2)
+
