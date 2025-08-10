@@ -142,12 +142,12 @@ if st.button("Add Entry"):
         sheet.append_row(new_entry)
         st.success("Entry added!")
 
-        # Reset all fields
+        # ✅ Reset widgets safely: remove keys, then rerun
         for key in ["fruit_select", "fruit_custom", "num_fruits", "weight_input", "juice_input"]:
-            if key in st.session_state:
-                st.session_state[key] = "" if isinstance(st.session_state[key], str) else None
+            st.session_state.pop(key, None)
 
         st.rerun()
+
 
 # --- Juice Efficiency Over Time ---
 if not df.empty and fruit:  # Only show if a fruit is selected
@@ -262,5 +262,6 @@ if not df.empty and "Juice (fl oz)" in df.columns:
     chart_df["Predicted (Weight)"] = (chart_df["Weight (g)"] / 100) * avg_per_100g
 
     st.line_chart(chart_df.set_index("Date")[["Juice (fl oz)", "Predicted (Fruits)", "Predicted (Weight)"]])
+
 
 
