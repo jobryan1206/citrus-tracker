@@ -99,33 +99,33 @@ if not df.empty and limes and weight:
             per_fruit_vals = valid_df["Juice (fl oz)"] / valid_df["Limes"]
             per_100g_vals = valid_df["Juice (fl oz)"] / valid_df["Weight (g)"] * 100
 
-        # Calculate statistics
-        fruit_mean = per_fruit_vals.mean()
-        fruit_std = per_fruit_vals.std() if len(per_fruit_vals) > 1 else 0
-        weight_mean = per_100g_vals.mean()
-        weight_std = per_100g_vals.std() if len(per_100g_vals) > 1 else 0
-        
-        # Calculate coefficient of variation (relative standard deviation)
-        fruit_cv = fruit_std / fruit_mean if fruit_mean > 0 else 0
-        weight_cv = weight_std / weight_mean if weight_mean > 0 else 0
+            # Calculate statistics
+            fruit_mean = per_fruit_vals.mean()
+            fruit_std = per_fruit_vals.std() if len(per_fruit_vals) > 1 else 0
+            weight_mean = per_100g_vals.mean()
+            weight_std = per_100g_vals.std() if len(per_100g_vals) > 1 else 0
+            
+            # Calculate coefficient of variation (relative standard deviation)
+            fruit_cv = fruit_std / fruit_mean if fruit_mean > 0 else 0
+            weight_cv = weight_std / weight_mean if weight_mean > 0 else 0
 
-        # Per-fruit predictions with proper scaling
-        fruit_avg = fruit_mean * limes
-        # Standard deviation of the prediction scales with sqrt(n) for independent samples
-        # But for a single batch, we use the CV to estimate uncertainty
-        fruit_std_pred = fruit_avg * fruit_cv
-        fruit_1sd_lower = max(0, fruit_avg - fruit_std_pred)
-        fruit_1sd_upper = fruit_avg + fruit_std_pred
-        fruit_2sd_lower = max(0, fruit_avg - 2 * fruit_std_pred)
-        fruit_2sd_upper = fruit_avg + 2 * fruit_std_pred
+            # Per-fruit predictions with proper scaling
+            fruit_avg = fruit_mean * limes
+            # Standard deviation of the prediction scales with sqrt(n) for independent samples
+            # But for a single batch, we use the CV to estimate uncertainty
+            fruit_std_pred = fruit_avg * fruit_cv
+            fruit_1sd_lower = max(0, fruit_avg - fruit_std_pred)
+            fruit_1sd_upper = fruit_avg + fruit_std_pred
+            fruit_2sd_lower = max(0, fruit_avg - 2 * fruit_std_pred)
+            fruit_2sd_upper = fruit_avg + 2 * fruit_std_pred
 
-        # Per-weight predictions with proper scaling
-        weight_avg = (weight_mean / 100) * weight
-        weight_std_pred = weight_avg * weight_cv
-        weight_1sd_lower = max(0, weight_avg - weight_std_pred)
-        weight_1sd_upper = weight_avg + weight_std_pred
-        weight_2sd_lower = max(0, weight_avg - 2 * weight_std_pred)
-        weight_2sd_upper = weight_avg + 2 * weight_std_pred
+            # Per-weight predictions with proper scaling
+            weight_avg = (weight_mean / 100) * weight
+            weight_std_pred = weight_avg * weight_cv
+            weight_1sd_lower = max(0, weight_avg - weight_std_pred)
+            weight_1sd_upper = weight_avg + weight_std_pred
+            weight_2sd_lower = max(0, weight_avg - 2 * weight_std_pred)
+            weight_2sd_upper = weight_avg + 2 * weight_std_pred
 
             # Like Last Entry (per-fruit and per-100g)
             if len(valid_df) > 0:
@@ -217,82 +217,7 @@ if not df.empty and limes and weight:
                     else:
                         st.warning("Outside 2σ range (weight method)")
         else:
-            st.info("Not enough valid data to generate predictions.")g],
-            "1σ Range (fl oz)": [
-                f"{fruit_1sd_lower:.1f} - {fruit_1sd_upper:.1f}",
-                f"{weight_1sd_lower:.1f} - {weight_1sd_upper:.1f}"
-            ],
-            "2σ Range (fl oz)": [
-                f"{fruit_2sd_lower:.1f} - {fruit_2sd_upper:.1f}",
-                f"{weight_2sd_lower:.1f} - {weight_2sd_upper:.1f}"
-            ],
-            "Like Last Entry (fl oz)": [
-                f"{last_fruit_pred:.1f}",
-                f"{last_weight_pred:.1f}"
-            ]
-        })
-
-        pred_table["Avg (fl oz)"] = pred_table["Avg (fl oz)"].map(lambda x: f"{x:.1f}")
-
-        st.subheader("📈 Predicted Juice Yield (fl oz)")
-        st.table(pred_table.set_index("Method"))
-        
-        # Show the underlying statistics for transparency
-        with st.expander("View calculation details"):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write("**Per-fruit statistics:**")
-                st.write(f"- Mean: {fruit_mean:.3f} fl oz/fruit")
-                st.write(f"- Std Dev: {fruit_std:.3f} fl oz/fruit")
-                st.write(f"- CV: {fruit_cv:.1%}")
-            with col2:
-                st.write("**Per-100g statistics:**")
-                st.write(f"- Mean: {weight_mean:.3f} fl oz/100g")
-                st.write(f"- Std Dev: {weight_std:.3f} fl oz/100g")
-                st.write(f"- CV: {weight_cv:.1%}")
-
-        st.caption("1σ ≈ 68% of outcomes, 2σ ≈ 95%. Ranges based on coefficient of variation from historical data.")
-
-        if juice:
-            st.subheader("🔍 Prediction Accuracy")
-
-            def compare(pred, actual):
-                diff = pred - actual
-                pct = (diff / actual) * 100 if actual else 0
-                direction = "overestimated" if diff > 0 else "underestimated"
-                return diff, abs(pct), direction
-
-            _, pct_fruit, dir_fruit = compare(fruit_avg, juice)
-            _, pct_weight, dir_weight = compare(weight_avg, juice)
-            _, pct_last_fruit, dir_last_fruit = compare(last_fruit_pred, juice)
-            _, pct_last_weight, dir_last_weight = compare(last_weight_pred, juice)
-
-            st.write(f"• Avg fruit prediction {dir_fruit} by **{pct_fruit:.1f}%**")
-            st.write(f"• Avg weight prediction {dir_weight} by **{pct_weight:.1f}%**")
-            st.write(f"• Last entry (fruit method) {dir_last_fruit} by **{pct_last_fruit:.1f}%**")
-            st.write(f"• Last entry (weight method) {dir_last_weight} by **{pct_last_weight:.1f}%**")
-            
-            # Check if actual is within confidence intervals
-            in_1sd_fruit = fruit_1sd_lower <= juice <= fruit_1sd_upper
-            in_2sd_fruit = fruit_2sd_lower <= juice <= fruit_2sd_upper
-            in_1sd_weight = weight_1sd_lower <= juice <= weight_1sd_upper
-            in_2sd_weight = weight_2sd_lower <= juice <= weight_2sd_upper
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                if in_1sd_fruit:
-                    st.success("✓ Within 1σ range (fruit method)")
-                elif in_2sd_fruit:
-                    st.info("✓ Within 2σ range (fruit method)")
-                else:
-                    st.warning("Outside 2σ range (fruit method)")
-            with col2:
-                if in_1sd_weight:
-                    st.success("✓ Within 1σ range (weight method)")
-                elif in_2sd_weight:
-                    st.info("✓ Within 2σ range (weight method)")
-                else:
-                    st.warning("Outside 2σ range (weight method)")
+            st.info("Not enough valid data to generate predictions.")
     else:
         st.info("Not enough data to generate predictions.")
 
@@ -375,7 +300,7 @@ if not df.empty and fruit:  # Only show if a fruit is selected
 # =========================
 # This Entry's Stats
 # =========================
-if juice and limes > 0 and weight > 0:
+if juice and limes and limes > 0 and weight and weight > 0:
     st.subheader("📌 This Entry's Stats")
     per_lime = juice / limes
     per_lb = juice / (weight / 453.6)
