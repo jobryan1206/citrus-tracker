@@ -142,9 +142,10 @@ if st.button("Add Entry"):
         sheet.append_row(new_entry)
         st.success("Entry added!")
 
-        for key in ["num_fruits", "weight_input", "juice_input", "fruit_custom"]:
+        # Reset all fields
+        for key in ["fruit_select", "fruit_custom", "num_fruits", "weight_input", "juice_input"]:
             if key in st.session_state:
-                del st.session_state[key]
+                st.session_state[key] = "" if isinstance(st.session_state[key], str) else None
 
         st.rerun()
 
@@ -261,4 +262,5 @@ if not df.empty and "Juice (fl oz)" in df.columns:
     chart_df["Predicted (Weight)"] = (chart_df["Weight (g)"] / 100) * avg_per_100g
 
     st.line_chart(chart_df.set_index("Date")[["Juice (fl oz)", "Predicted (Fruits)", "Predicted (Weight)"]])
+
 
