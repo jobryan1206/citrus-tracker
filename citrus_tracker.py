@@ -88,19 +88,19 @@ if not df.empty and limes and weight:
         weight_mean = per_100g_vals.mean()
         weight_std = per_100g_vals.std()
 
-   # Per-fruit predictions
-fruit_avg = fruit_mean * limes
-fruit_1sd_lower = max(0, (fruit_mean - fruit_std)) * limes
-fruit_1sd_upper = (fruit_mean + fruit_std) * limes
-fruit_2sd_lower = max(0, (fruit_mean - 2 * fruit_std)) * limes
-fruit_2sd_upper = (fruit_mean + 2 * fruit_std) * limes
+         # Per-fruit predictions
+        fruit_avg = fruit_mean * limes
+        fruit_1sd_lower = max(0, (fruit_mean - fruit_std)) * limes
+        fruit_1sd_upper = (fruit_mean + fruit_std) * limes
+        fruit_2sd_lower = max(0, (fruit_mean - 2 * fruit_std)) * limes
+        fruit_2sd_upper = (fruit_mean + 2 * fruit_std) * limes
 
-# Per-weight predictions
-weight_avg = (weight_mean / 100) * weight
-weight_1sd_lower = max(0, (weight_mean - weight_std) / 100) * weight
-weight_1sd_upper = ((weight_mean + weight_std) / 100) * weight
-weight_2sd_lower = max(0, (weight_mean - 2 * weight_std) / 100) * weight
-weight_2sd_upper = ((weight_mean + 2 * weight_std) / 100) * weight
+        # Per-weight predictions
+        weight_avg = (weight_mean / 100) * weight
+        weight_1sd_lower = max(0, (weight_mean - weight_std) / 100) * weight
+        weight_1sd_upper = ((weight_mean + weight_std) / 100) * weight
+        weight_2sd_lower = max(0, (weight_mean - 2 * weight_std) / 100) * weight
+        weight_2sd_upper = ((weight_mean + 2 * weight_std) / 100) * weight
 
 
         # Like Last Entry (per-fruit and per-100g)
@@ -293,4 +293,5 @@ if not df.empty and "Juice (fl oz)" in df.columns:
     chart_df["Predicted (Weight)"] = (chart_df["Weight (g)"] / 100) * avg_per_100g
 
     st.line_chart(chart_df.set_index("Date")[["Juice (fl oz)", "Predicted (Fruits)", "Predicted (Weight)"]])
+
 
