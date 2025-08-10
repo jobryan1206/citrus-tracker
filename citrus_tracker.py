@@ -78,6 +78,27 @@ juice = st.number_input(
 use_rolling = st.toggle("Use rolling average (last 10 entries)", value=True)
 
 # =========================
+# Save entry (and clear inputs)
+# =========================
+if st.button("Add Entry"):
+    if not fruit:
+        st.warning("Please enter a fruit name.")
+    else:
+        new_entry = [
+            datetime.now().strftime("%Y-%m-%d"),
+            fruit,
+            limes,
+            weight,
+            juice
+        ]
+        sheet.append_row(new_entry)
+        st.toast("Entry added!", icon="✅")
+
+        # Force-clear all widgets by bumping the key suffix and rerunning
+        st.session_state["reset"] += 1
+        st.rerun()
+
+# =========================
 # Yield prediction with proper confidence intervals
 # =========================
 if not df.empty and limes and weight:
@@ -220,27 +241,6 @@ if not df.empty and limes and weight:
             st.info("Not enough valid data to generate predictions.")
     else:
         st.info("Not enough data to generate predictions.")
-
-# =========================
-# Save entry (and clear inputs)
-# =========================
-if st.button("Add Entry"):
-    if not fruit:
-        st.warning("Please enter a fruit name.")
-    else:
-        new_entry = [
-            datetime.now().strftime("%Y-%m-%d"),
-            fruit,
-            limes,
-            weight,
-            juice
-        ]
-        sheet.append_row(new_entry)
-        st.toast("Entry added!", icon="✅")
-
-        # Force-clear all widgets by bumping the key suffix and rerunning
-        st.session_state["reset"] += 1
-        st.rerun()
 
 # =========================
 # Juice Efficiency Over Time
