@@ -26,6 +26,12 @@ sheet = client.open("Citrus Juice Tracker").worksheet("juice_data")
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
 
+# Ensure numeric columns are properly typed
+if not df.empty:
+    df["Limes"] = pd.to_numeric(df["Limes"], errors='coerce').fillna(0)
+    df["Weight (g)"] = pd.to_numeric(df["Weight (g)"], errors='coerce').fillna(0)
+    df["Juice (fl oz)"] = pd.to_numeric(df["Juice (fl oz)"], errors='coerce').fillna(0)
+
 # =========================
 # Input section
 # =========================
@@ -78,10 +84,20 @@ if not df.empty and limes and weight:
     fruit_df = df[df["Fruit"] == fruit].copy()
     recent_df = fruit_df.tail(10) if use_rolling else fruit_df
 
-    if not recent_df.empty and recent_df["Limes"].sum() > 0 and recent_df["Weight (g)"].sum() > 0:
-        # Calculate per-fruit and per-100g values
-        per_fruit_vals = recent_df["Juice (fl oz)"] / recent_df["Limes"]
-        per_100g_vals = recent_df["Juice (fl oz)"] / recent_df["Weight (g)"] * 100
+    if not recent_df.empty and len(recent_df) > 0:
+        # Ensure numeric types
+        recent_df = recent_df.copy()
+        recent_df["Limes"] = pd.to_numeric(recent_df["Limes"], errors='coerce')
+        recent_df["Weight (g)"] = pd.to_numeric(recent_df["Weight (g)"], errors='coerce')
+        recent_df["Juice (fl oz)"] = pd.to_numeric(recent_df["Juice (fl oz)"], errors='coerce')
+        
+        # Filter out invalid rows
+        valid_df = recent_df[(recent_df["Limes"] > 0) & (recent_df["Weight (g)"] > 0)].copy()
+        
+        if not valid_df.empty:
+            # Calculate per-fruit and per-100g values
+            per_fruit_vals = valid_df["Juice (fl oz)"] / valid_df["Limes"]
+            per_100g_vals = valid_df["Juice (fl oz)"] / valid_df["Weight (g)"] * 100
 
         # Calculate statistics
         fruit_mean = per_fruit_vals.mean()
@@ -111,20 +127,97 @@ if not df.empty and limes and weight:
         weight_2sd_lower = max(0, weight_avg - 2 * weight_std_pred)
         weight_2sd_upper = weight_avg + 2 * weight_std_pred
 
-        # Like Last Entry (per-fruit and per-100g)
-        if len(recent_df) > 0:
-            last_entry = recent_df.iloc[-1]
-            last_per_fruit = last_entry["Juice (fl oz)"] / last_entry["Limes"] if last_entry["Limes"] > 0 else 0
-            last_per_100g = (last_entry["Juice (fl oz)"] / last_entry["Weight (g)"] * 100) if last_entry["Weight (g)"] > 0 else 0
-            last_fruit_pred = last_per_fruit * limes
-            last_weight_pred = (last_per_100g / 100) * weight
-        else:
-            last_fruit_pred = 0
-            last_weight_pred = 0
+            # Like Last Entry (per-fruit and per-100g)
+            if len(valid_df) > 0:
+                last_entry = valid_df.iloc[-1]
+                last_per_fruit = last_entry["Juice (fl oz)"] / last_entry["Limes"] if last_entry["Limes"] > 0 else 0
+                last_per_100g = (last_entry["Juice (fl oz)"] / last_entry["Weight (g)"] * 100) if last_entry["Weight (g)"] > 0 else 0
+                last_fruit_pred = last_per_fruit * limes
+                last_weight_pred = (last_per_100g / 100) * weight
+            else:
+                last_fruit_pred = 0
+                last_weight_pred = 0
 
-        pred_table = pd.DataFrame({
-            "Method": ["By fruit count", "By weight"],
-            "Avg (fl oz)": [fruit_avg, weight_avg],
+            pred_table = pd.DataFrame({
+                "Method": ["By fruit count", "By weight"],
+                "Avg (fl oz)": [fruit_avg, weight_avg],
+                "1σ Range (fl oz)": [
+                    f"{fruit_1sd_lower:.1f} - {fruit_1sd_upper:.1f}",
+                    f"{weight_1sd_lower:.1f} - {weight_1sd_upper:.1f}"
+                ],
+                "2σ Range (fl oz)": [
+                    f"{fruit_2sd_lower:.1f} - {fruit_2sd_upper:.1f}",
+                    f"{weight_2sd_lower:.1f} - {weight_2sd_upper:.1f}"
+                ],
+                "Like Last Entry (fl oz)": [
+                    f"{last_fruit_pred:.1f}",
+                    f"{last_weight_pred:.1f}"
+                ]
+            })
+
+            pred_table["Avg (fl oz)"] = pred_table["Avg (fl oz)"].map(lambda x: f"{x:.1f}")
+
+            st.subheader("📈 Predicted Juice Yield (fl oz)")
+            st.table(pred_table.set_index("Method"))
+            
+            # Show the underlying statistics for transparency
+            with st.expander("View calculation details"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write("**Per-fruit statistics:**")
+                    st.write(f"- Mean: {fruit_mean:.3f} fl oz/fruit")
+                    st.write(f"- Std Dev: {fruit_std:.3f} fl oz/fruit")
+                    st.write(f"- CV: {fruit_cv:.1%}")
+                with col2:
+                    st.write("**Per-100g statistics:**")
+                    st.write(f"- Mean: {weight_mean:.3f} fl oz/100g")
+                    st.write(f"- Std Dev: {weight_std:.3f} fl oz/100g")
+                    st.write(f"- CV: {weight_cv:.1%}")
+
+            st.caption("1σ ≈ 68% of outcomes, 2σ ≈ 95%. Ranges based on coefficient of variation from historical data.")
+
+            if juice:
+                st.subheader("🔍 Prediction Accuracy")
+
+                def compare(pred, actual):
+                    diff = pred - actual
+                    pct = (diff / actual) * 100 if actual else 0
+                    direction = "overestimated" if diff > 0 else "underestimated"
+                    return diff, abs(pct), direction
+
+                _, pct_fruit, dir_fruit = compare(fruit_avg, juice)
+                _, pct_weight, dir_weight = compare(weight_avg, juice)
+                _, pct_last_fruit, dir_last_fruit = compare(last_fruit_pred, juice)
+                _, pct_last_weight, dir_last_weight = compare(last_weight_pred, juice)
+
+                st.write(f"• Avg fruit prediction {dir_fruit} by **{pct_fruit:.1f}%**")
+                st.write(f"• Avg weight prediction {dir_weight} by **{pct_weight:.1f}%**")
+                st.write(f"• Last entry (fruit method) {dir_last_fruit} by **{pct_last_fruit:.1f}%**")
+                st.write(f"• Last entry (weight method) {dir_last_weight} by **{pct_last_weight:.1f}%**")
+                
+                # Check if actual is within confidence intervals
+                in_1sd_fruit = fruit_1sd_lower <= juice <= fruit_1sd_upper
+                in_2sd_fruit = fruit_2sd_lower <= juice <= fruit_2sd_upper
+                in_1sd_weight = weight_1sd_lower <= juice <= weight_1sd_upper
+                in_2sd_weight = weight_2sd_lower <= juice <= weight_2sd_upper
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if in_1sd_fruit:
+                        st.success("✓ Within 1σ range (fruit method)")
+                    elif in_2sd_fruit:
+                        st.info("✓ Within 2σ range (fruit method)")
+                    else:
+                        st.warning("Outside 2σ range (fruit method)")
+                with col2:
+                    if in_1sd_weight:
+                        st.success("✓ Within 1σ range (weight method)")
+                    elif in_2sd_weight:
+                        st.info("✓ Within 2σ range (weight method)")
+                    else:
+                        st.warning("Outside 2σ range (weight method)")
+        else:
+            st.info("Not enough valid data to generate predictions.")g],
             "1σ Range (fl oz)": [
                 f"{fruit_1sd_lower:.1f} - {fruit_1sd_upper:.1f}",
                 f"{weight_1sd_lower:.1f} - {weight_1sd_upper:.1f}"
@@ -236,12 +329,17 @@ if not df.empty and fruit:  # Only show if a fruit is selected
         chart_df = fruit_data.copy()
         chart_df["Date"] = pd.to_datetime(chart_df["Date"])
 
+        # Convert columns to numeric, handling any non-numeric values
+        chart_df["Limes"] = pd.to_numeric(chart_df["Limes"], errors='coerce')
+        chart_df["Weight (g)"] = pd.to_numeric(chart_df["Weight (g)"], errors='coerce')
+        chart_df["Juice (fl oz)"] = pd.to_numeric(chart_df["Juice (fl oz)"], errors='coerce')
+        
         chart_df["Juice per fruit (fl oz)"] = chart_df.apply(
-            lambda row: row["Juice (fl oz)"] / row["Limes"] if row["Limes"] > 0 else np.nan,
+            lambda row: row["Juice (fl oz)"] / row["Limes"] if pd.notna(row["Limes"]) and row["Limes"] > 0 else np.nan,
             axis=1
         )
         chart_df["Juice per 100g (fl oz)"] = chart_df.apply(
-            lambda row: (row["Juice (fl oz)"] / row["Weight (g)"]) * 100 if row["Weight (g)"] > 0 else np.nan,
+            lambda row: (row["Juice (fl oz)"] / row["Weight (g)"]) * 100 if pd.notna(row["Weight (g)"]) and row["Weight (g)"] > 0 else np.nan,
             axis=1
         )
 
