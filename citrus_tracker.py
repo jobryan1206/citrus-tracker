@@ -72,36 +72,44 @@ juice = st.number_input(
 use_rolling = st.toggle("Use rolling average (last 10 entries)", value=True)
 
 # =========================
-# Yield prediction (avg + standard deviation ranges)
+# Yield prediction with proper confidence intervals
 # =========================
 if not df.empty and limes and weight:
     fruit_df = df[df["Fruit"] == fruit].copy()
     recent_df = fruit_df.tail(10) if use_rolling else fruit_df
 
     if not recent_df.empty and recent_df["Limes"].sum() > 0 and recent_df["Weight (g)"].sum() > 0:
+        # Calculate per-fruit and per-100g values
         per_fruit_vals = recent_df["Juice (fl oz)"] / recent_df["Limes"]
         per_100g_vals = recent_df["Juice (fl oz)"] / recent_df["Weight (g)"] * 100
 
-        # Means and standard deviations
+        # Calculate statistics
         fruit_mean = per_fruit_vals.mean()
-        fruit_std = per_fruit_vals.std()
+        fruit_std = per_fruit_vals.std() if len(per_fruit_vals) > 1 else 0
         weight_mean = per_100g_vals.mean()
-        weight_std = per_100g_vals.std()
+        weight_std = per_100g_vals.std() if len(per_100g_vals) > 1 else 0
+        
+        # Calculate coefficient of variation (relative standard deviation)
+        fruit_cv = fruit_std / fruit_mean if fruit_mean > 0 else 0
+        weight_cv = weight_std / weight_mean if weight_mean > 0 else 0
 
-         # Per-fruit predictions
+        # Per-fruit predictions with proper scaling
         fruit_avg = fruit_mean * limes
-        fruit_1sd_lower = max(0, (fruit_mean - fruit_std)) * limes
-        fruit_1sd_upper = (fruit_mean + fruit_std) * limes
-        fruit_2sd_lower = max(0, (fruit_mean - 2 * fruit_std)) * limes
-        fruit_2sd_upper = (fruit_mean + 2 * fruit_std) * limes
+        # Standard deviation of the prediction scales with sqrt(n) for independent samples
+        # But for a single batch, we use the CV to estimate uncertainty
+        fruit_std_pred = fruit_avg * fruit_cv
+        fruit_1sd_lower = max(0, fruit_avg - fruit_std_pred)
+        fruit_1sd_upper = fruit_avg + fruit_std_pred
+        fruit_2sd_lower = max(0, fruit_avg - 2 * fruit_std_pred)
+        fruit_2sd_upper = fruit_avg + 2 * fruit_std_pred
 
-        # Per-weight predictions
+        # Per-weight predictions with proper scaling
         weight_avg = (weight_mean / 100) * weight
-        weight_1sd_lower = max(0, (weight_mean - weight_std) / 100) * weight
-        weight_1sd_upper = ((weight_mean + weight_std) / 100) * weight
-        weight_2sd_lower = max(0, (weight_mean - 2 * weight_std) / 100) * weight
-        weight_2sd_upper = ((weight_mean + 2 * weight_std) / 100) * weight
-
+        weight_std_pred = weight_avg * weight_cv
+        weight_1sd_lower = max(0, weight_avg - weight_std_pred)
+        weight_1sd_upper = weight_avg + weight_std_pred
+        weight_2sd_lower = max(0, weight_avg - 2 * weight_std_pred)
+        weight_2sd_upper = weight_avg + 2 * weight_std_pred
 
         # Like Last Entry (per-fruit and per-100g)
         if len(recent_df) > 0:
@@ -135,8 +143,22 @@ if not df.empty and limes and weight:
 
         st.subheader("📈 Predicted Juice Yield (fl oz)")
         st.table(pred_table.set_index("Method"))
+        
+        # Show the underlying statistics for transparency
+        with st.expander("View calculation details"):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write("**Per-fruit statistics:**")
+                st.write(f"- Mean: {fruit_mean:.3f} fl oz/fruit")
+                st.write(f"- Std Dev: {fruit_std:.3f} fl oz/fruit")
+                st.write(f"- CV: {fruit_cv:.1%}")
+            with col2:
+                st.write("**Per-100g statistics:**")
+                st.write(f"- Mean: {weight_mean:.3f} fl oz/100g")
+                st.write(f"- Std Dev: {weight_std:.3f} fl oz/100g")
+                st.write(f"- CV: {weight_cv:.1%}")
 
-        st.caption("1σ ≈ 68% of outcomes, 2σ ≈ 95%. “Like Last Entry” projects output if this session matches your most recent entry for this fruit.")
+        st.caption("1σ ≈ 68% of outcomes, 2σ ≈ 95%. Ranges based on coefficient of variation from historical data.")
 
         if juice:
             st.subheader("🔍 Prediction Accuracy")
@@ -156,6 +178,28 @@ if not df.empty and limes and weight:
             st.write(f"• Avg weight prediction {dir_weight} by **{pct_weight:.1f}%**")
             st.write(f"• Last entry (fruit method) {dir_last_fruit} by **{pct_last_fruit:.1f}%**")
             st.write(f"• Last entry (weight method) {dir_last_weight} by **{pct_last_weight:.1f}%**")
+            
+            # Check if actual is within confidence intervals
+            in_1sd_fruit = fruit_1sd_lower <= juice <= fruit_1sd_upper
+            in_2sd_fruit = fruit_2sd_lower <= juice <= fruit_2sd_upper
+            in_1sd_weight = weight_1sd_lower <= juice <= weight_1sd_upper
+            in_2sd_weight = weight_2sd_lower <= juice <= weight_2sd_upper
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if in_1sd_fruit:
+                    st.success("✓ Within 1σ range (fruit method)")
+                elif in_2sd_fruit:
+                    st.info("✓ Within 2σ range (fruit method)")
+                else:
+                    st.warning("Outside 2σ range (fruit method)")
+            with col2:
+                if in_1sd_weight:
+                    st.success("✓ Within 1σ range (weight method)")
+                elif in_2sd_weight:
+                    st.info("✓ Within 2σ range (weight method)")
+                else:
+                    st.warning("Outside 2σ range (weight method)")
     else:
         st.info("Not enough data to generate predictions.")
 
@@ -231,10 +275,10 @@ if not df.empty and fruit:  # Only show if a fruit is selected
         st.info(f"Add more {fruit.lower()} entries to see efficiency trends over time (need at least 2 entries).")
 
 # =========================
-# This Entry’s Stats
+# This Entry's Stats
 # =========================
 if juice and limes > 0 and weight > 0:
-    st.subheader("📌 This Entry’s Stats")
+    st.subheader("📌 This Entry's Stats")
     per_lime = juice / limes
     per_lb = juice / (weight / 453.6)
     st.write(f"• Juice per fruit: **{per_lime:.2f} fl oz**")
@@ -287,11 +331,9 @@ if not df.empty and "Juice (fl oz)" in df.columns:
     chart_df["Date"] = pd.to_datetime(chart_df["Date"])
 
     avg_per_fruit = df["Juice (fl oz)"].sum() / df["Limes"].sum() if df["Limes"].sum() else 0
-    avg_per_100g = df["Juice (fl oz)"].sum() / df["Weight (g)"].sum() if df["Weight (g)"].sum() else 0
+    avg_per_100g = df["Juice (fl oz)"].sum() / df["Weight (g)"].sum() * 100 if df["Weight (g)"].sum() else 0
 
     chart_df["Predicted (Fruits)"] = chart_df["Limes"] * avg_per_fruit
     chart_df["Predicted (Weight)"] = (chart_df["Weight (g)"] / 100) * avg_per_100g
 
     st.line_chart(chart_df.set_index("Date")[["Juice (fl oz)", "Predicted (Fruits)", "Predicted (Weight)"]])
-
-
